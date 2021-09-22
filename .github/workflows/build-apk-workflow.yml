@@ -1,0 +1,48 @@
+name: Build APK
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  Build-APK:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v1
+
+      - name: Build Backend
+        run: msbuild {SLN_NAME}/{SLN_NAME}.sln /p:Configuration="Release"
+
+      - name: After Build Backend
+        run: msbuild {SLN_NAME}/{SLN_NAME}.sln /t:AfterBuild /p:Configuration="Release"
+
+      - name: Check Backend Dlls
+        run: dir ${{ github.workspace }}\{UNITY_SLN}\Assets\Plugins
+
+      - name: Setup Unity
+        uses: kuler90/setup-unity@v1
+        with:
+          unity-modules: android
+          project-path: ${{ github.workspace }}\{UNITY_SLN}
+
+      - name: Activate Unity
+        uses: kuler90/activate-unity@v1
+        with:
+          unity-username: ${{ secrets.UNITY_LOGIN }}
+          unity-password: ${{ secrets.UNITY_PASSWORD }}
+          unity-authenticator-key: ${{ secrets.UNITY_AUTHENTICATOR_KEY }}
+
+      - name: Build APK
+        uses: kuler90/build-unity@v1
+        with:
+          project-path: ${{ github.workspace }}\{UNITY_SLN}
+          build-target: Android
+          build-path: ./{RESULT_NAME}.apk
+
+      - name: Publish APK
+        uses: actions/upload-artifact@v2
+        with:
+          name: {RESULT_NAME}.apk
+          path: ./{RESULT_NAME}.apk
