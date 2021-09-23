@@ -2,7 +2,12 @@ name: Pull Request
 on:
   pull_request:
     branches:
-      - master
+      - develop
+  workflow_dispatch:
+        
+env:
+  CORE_SLN: 
+  UNITY_PROJECT: 
 
 jobs:
   Build-Backend:
@@ -14,10 +19,10 @@ jobs:
         uses: microsoft/setup-msbuild@v1
 
       - name: Build Backend
-        run: msbuild {SLN_NAME}/{SLN_NAME}.sln /p:Configuration="Release"
+        run: msbuild ${{ env.CORE_SLN }}/${{ env.CORE_SLN }}.sln /p:Configuration="Release"
 
       - name: After Build Backend
-        run: msbuild {SLN_NAME}/{SLN_NAME}.sln /t:AfterBuild /p:Configuration="Release"
+        run: msbuild ${{ env.CORE_SLN }}/${{ env.CORE_SLN }}.sln /t:AfterBuild /p:Configuration="Release"
 
       - name: Check Backend Dlls
-        run: dir ${{ github.workspace }}\{UNITY_SLN}\Assets\Plugins
+        run: dir ${{ github.workspace }}\${{ env.UNITY_PROJECT }}\Assets\Plugins
