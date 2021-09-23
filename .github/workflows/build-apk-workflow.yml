@@ -1,48 +1,75 @@
 name: Build APK
 on:
-  push:
   workflow_dispatch:
 
+env:
+  CORE_SLN: 
+  UNITY_PROJECT:
+  BUILD_TARGET: 
+  BUILD_NAME
+
 jobs:
-  Build-APK:
+  Build-Backend:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout
+        uses: actions/checkout@v2
 
       - name: Setup MSBuild
         uses: microsoft/setup-msbuild@v1
 
       - name: Build Backend
-        run: msbuild {SLN_NAME}/{SLN_NAME}.sln /p:Configuration="Release"
+        run: msbuild ${{ env.CORE_SLN }}/${{ env.CORE_SLN }}.sln /p:Configuration="Release"
 
       - name: After Build Backend
-        run: msbuild {SLN_NAME}/{SLN_NAME}.sln /t:AfterBuild /p:Configuration="Release"
+        run: msbuild ${{ env.CORE_SLN }}/${{ env.CORE_SLN }}.sln /t:AfterBuild /p:Configuration="Release"
 
       - name: Check Backend Dlls
-        run: dir ${{ github.workspace }}\{UNITY_SLN}\Assets\Plugins
+        run: dir ${{ github.workspace }}\${{ env.UNITY_PROJECT }}\Assets\Plugins
 
-      - name: Setup Unity
-        uses: kuler90/setup-unity@v1
+      - name: Publish Backend Dlls
+        uses: actions/upload-artifact@v2
         with:
-          unity-modules: android
-          project-path: ${{ github.workspace }}\{UNITY_SLN}
+          name: backend-dlls
+          path: ${{ github.workspace }}\${{ env.UNITY_PROJECT }}\Assets\Plugins
 
-      - name: Activate Unity
-        uses: kuler90/activate-unity@v1
+  Build-APK:
+    needs: Build-Backend
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Download Backend Dlls
+        uses: actions/download-artifact@v2
         with:
-          unity-username: ${{ secrets.UNITY_LOGIN }}
-          unity-password: ${{ secrets.UNITY_PASSWORD }}
-          unity-authenticator-key: ${{ secrets.UNITY_AUTHENTICATOR_KEY }}
+          name: backend-dlls
+          path: ${{ github.workspace }}/${{ env.UNITY_PROJECT }}/Assets/Plugins
+
+      - name: Create Library Folder
+        run: mkdir -p ${{ github.workspace }}/${{ env.UNITY_PROJECT }}/Library
+
+      - name: Cache Library Folder
+        uses: actions/cache@v2
+        with:
+          path: ${{ github.workspace }}/${{ env.UNITY_PROJECT }}/Library
+          key: Library-${{ env.UNITY_PROJECT }}-${{ env.BUILD_TARGET }}
+          restore-keys: |
+            Library-${{ env.UNITY_PROJECT }}-
+            Library-
 
       - name: Build APK
-        uses: kuler90/build-unity@v1
+        uses: game-ci/unity-builder@v2
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
         with:
-          project-path: ${{ github.workspace }}\{UNITY_SLN}
-          build-target: Android
-          build-path: ./{RESULT_NAME}.apk
-
+          targetPlatform: ${{ env.BUILD_TARGET }}
+          projectPath: ${{ github.workspace }}/${{ env.UNITY_PROJECT }}
+          buildsPath: build
+          buildName: ${{ env.BUILD_NAME }}
+          
       - name: Publish APK
         uses: actions/upload-artifact@v2
         with:
-          name: {RESULT_NAME}.apk
-          path: ./{RESULT_NAME}.apk
+          name: ${{ env.BUILD_NAME }}.apk
+          path: ${{ github.workspace }}/build/${{ env.BUILD_TARGET }}/${{ env.BUILD_NAME }}.apk
